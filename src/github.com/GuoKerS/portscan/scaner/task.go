@@ -1,6 +1,7 @@
 package scaner
 
 import (
+	"fmt"
 	"github.com/GuoKerS/portscan/vars"
 	"net"
 	"sync"
@@ -37,6 +38,7 @@ func Scan(taskChan chan map[string]int, wg *sync.WaitGroup) {
 }
 
 func RunTask(tasks []map[string]int) {
+	fmt.Println("[-] 开始进行端口扫描")
 	wg := &sync.WaitGroup{}
 
 	taskChan := make(chan map[string]int, vars.ThreadNum)

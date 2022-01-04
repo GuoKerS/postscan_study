@@ -29,9 +29,15 @@ func Scan(ctx *cli.Context) error {
 	}
 
 	ips, err := scaner.GetIps(vars.Host)
+	// todo 根据ip列表先做一遍存活判断
+	ips_Survival, _ := scaner.GetSurviving_IPs(ips)
+	//fmt.Println(ips_Survival)
 
 	ports, err := scaner.GetPorts(vars.Port)
-	tasks, _ := scaner.Gen_PortScanTask(ips, ports)
+
+	// todo 生成存活列表在做端口列表生成(对列表中的元素进行删除效率很低，可能需要设计一个链表出来，用来给接下来的扫描做准备)
+	tasks, _ := scaner.Gen_PortScanTask(ips_Survival, ports)
+
 	scaner.RunTask(tasks)
 	scaner.PrintResult()
 	return err
