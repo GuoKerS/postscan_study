@@ -31,7 +31,6 @@ func Scan(ctx *cli.Context) error {
 	ips, err := scaner.GetIps(vars.Host)
 	// todo 根据ip列表先做一遍存活判断
 	ips_Survival, _ := scaner.GetSurviving_IPs(ips)
-	//fmt.Println(ips_Survival)
 
 	ports, err := scaner.GetPorts(vars.Port)
 

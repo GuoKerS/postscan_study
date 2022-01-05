@@ -3,45 +3,40 @@ package scaner
 import (
 	"bytes"
 	"fmt"
+	"github.com/GuoKerS/portscan/vars"
 	"net"
 	"os/exec"
 	"runtime"
 	"strings"
+	"sync"
 )
 
 func GetSurviving_IPs(ips []net.IP) ([]net.IP, error) {
-	fmt.Printf("[-] 开始IP存活探测\n")
 	var res []net.IP
-	for _, ip := range ips {
-		if r := CmdPing(ip); r != nil {
-			res = append(res, r)
-		}
+	wg := &sync.WaitGroup{}
 
+	chanPing := make(chan net.IP, vars.ThreadNum)
+	fmt.Printf("[-] 开始IP存活探测\n")
+
+	// 消费者
+	for i := 0; i < vars.ThreadNum; i++ {
+
+		go RunPing(chanPing, wg)
 	}
+
+	// 生产者
+	for _, ip := range ips {
+		wg.Add(1)
+		chanPing <- ip
+	}
+	wg.Wait()
+	close(chanPing)
+	res = PrintPing()
 	return res, nil
 }
 
-func CmdPing(host net.IP) (result net.IP) {
+func CmdPing(host net.IP) string {
 	sysType := runtime.GOOS
-	//if sysType == "linux" {
-	//	cmd := exec.Command("/bin/sh", "-c", "ping -c 1 "+host.String())
-	//	var out bytes.Buffer
-	//	cmd.Stdout = &out
-	//	cmd.Run()
-	//	if strings.Contains(out.String(), "ttl=") {
-	//		fmt.Printf("[*] %s is online.\n", host)
-	//		result = host
-	//	}
-	//} else if sysType == "windows" {
-	//	cmd := exec.Command("cmd", "/c", "ping -n 1 "+host.String())
-	//	var out bytes.Buffer
-	//	cmd.Stdout = &out
-	//	cmd.Run()
-	//	if strings.Contains(out.String(), "TTL=") {
-	//		fmt.Printf("[*] %s is online.\n", host)
-	//		result = host
-	//	}
-	//}
 
 	// 借鉴了fscan中的ping判断存活
 	var command *exec.Cmd
@@ -56,16 +51,16 @@ func CmdPing(host net.IP) (result net.IP) {
 	command.Stdout = &outinfo
 	err := command.Start()
 	if err != nil {
-		return nil
+		return "nil"
 	}
 	if err = command.Wait(); err != nil {
-		return nil
+		return "nil"
 	} else {
 		if strings.Contains(outinfo.String(), "true") {
 			fmt.Printf("[*] %s is online.\n", host.String())
-			return host
+			return host.String()
 		} else {
-			return nil
+			return "nil"
 		}
 	}
 }

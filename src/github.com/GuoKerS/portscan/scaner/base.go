@@ -87,6 +87,18 @@ func SaveResult(ip string, port int, err error) error {
 	return err
 }
 
+func PrintPing() []net.IP {
+	var alive_host []net.IP
+	vars.IsPingsOK.Range(func(key, value interface{}) bool {
+		//fmt.Printf("sync.IsPingOK -> %v\n", key)
+		//alive_host = append(alive_host, key)
+		ip := net.ParseIP(key.(string))
+		alive_host = append(alive_host, ip)
+		return true
+	})
+	return alive_host
+}
+
 func PrintResult() {
 	vars.Result.Range(func(ip, port interface{}) bool {
 		fmt.Printf("IP:%v\n", ip)

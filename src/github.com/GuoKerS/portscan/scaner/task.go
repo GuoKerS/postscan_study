@@ -37,6 +37,16 @@ func Scan(taskChan chan map[string]int, wg *sync.WaitGroup) {
 	}
 }
 
+func RunPing(chanPing chan net.IP, wg *sync.WaitGroup) {
+	for ip := range chanPing {
+		r := CmdPing(ip)
+		if r != "nil" {
+			vars.IsPingsOK.Store(r, nil)
+		}
+		wg.Done()
+	}
+}
+
 func RunTask(tasks []map[string]int) {
 	fmt.Println("[-] 开始进行端口扫描")
 	wg := &sync.WaitGroup{}
