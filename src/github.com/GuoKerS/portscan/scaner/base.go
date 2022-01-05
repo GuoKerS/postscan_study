@@ -5,9 +5,20 @@ import (
 	"github.com/GuoKerS/portscan/vars"
 	"github.com/malfunkt/iprange"
 	"net"
+	"os"
+	"runtime"
 	"strconv"
 	"strings"
+	"sync"
 )
+
+func CheckRoot() bool {
+	if runtime.GOOS != "windows" && os.Getuid() == 0 {
+		return false
+	} else {
+		return true
+	}
+}
 
 func GetIps(ips string) ([]net.IP, error) {
 	if ips == "" {
@@ -19,6 +30,43 @@ func GetIps(ips string) ([]net.IP, error) {
 	}
 	rang := ipList.Expand()
 	return rang, nil
+}
+
+func GetSurviving_IPs(ips []net.IP) ([]net.IP, error) {
+	var res []net.IP
+	wg := &sync.WaitGroup{}
+
+	chanPing := make(chan net.IP, vars.ThreadNum)
+	fmt.Printf("[-] 开始IP存活探测\n")
+
+	if CheckRoot() {
+		// 消费者
+		for i := 0; i < vars.ThreadNum; i++ {
+			go RunIcmp(chanPing, wg)
+		}
+
+		// 生产者
+		for _, ip := range ips {
+			wg.Add(1)
+			chanPing <- ip
+		}
+	} else {
+		// 消费者
+		for i := 0; i < vars.ThreadNum; i++ {
+			go RunPing(chanPing, wg)
+		}
+
+		// 生产者
+		for _, ip := range ips {
+			wg.Add(1)
+			chanPing <- ip
+		}
+	}
+
+	wg.Wait()
+	close(chanPing)
+	res = PrintPing()
+	return res, nil
 }
 
 func GetPorts(selection string) ([]int, error) {
