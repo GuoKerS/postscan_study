@@ -20,14 +20,6 @@ func Gen_PortScanTask(ips []net.IP, ports []int) ([]map[string]int, int) {
 }
 
 func Scan(taskChan chan map[string]int, wg *sync.WaitGroup) {
-	// ping 存活判断
-	//for task := range taskChan{
-	//	for ip, _ := range task{
-	//		_, _ = CmdPing(ip)
-	//		wg.Done()
-	//	}
-	//}
-
 	// 端口扫描
 	for task := range taskChan {
 		for ip, port := range task {

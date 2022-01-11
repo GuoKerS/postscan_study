@@ -14,11 +14,12 @@ type ICMP struct {
 	Type           uint8  // 消息类型
 	Code           uint8  // 代码
 	CheckSum       uint16 // 校验和
-	Identifier     uint16 // 标识符
-	SequenceNumber uint16 // 报文序号
+	Identifier     uint16 // 标识符     标记   如果采用无状态的icmp扫描方式的话可以在这里通过标记来过滤背景流量
+	SequenceNumber uint16 // 报文序号   标记
 	//Data           uint32 // 数据段，可以为任意数据
 }
 
+//https://blog.csdn.net/kclax/article/details/93209762    无状态扫描技术
 //func MyCheckSum(data bytes.Buffer) uint16 {
 //	/*
 //		1.将报文分为两个字节一组，如果总数为奇数，则在末尾追加一个零字节
@@ -60,7 +61,6 @@ func GenICMP(seq uint16) ICMP {
 func sendICMPRequest(icmp ICMP, destAddr *net.IPAddr) bool {
 	conn, err := net.DialIP("ip4:icmp", nil, destAddr)
 	if err != nil {
-		fmt.Printf("Fail to connect to remote host: %s\n", err)
 		return false
 	}
 	defer conn.Close()
