@@ -10,13 +10,14 @@ import (
 	"strconv"
 	"strings"
 	"sync"
+	"time"
 )
 
 func CheckRoot() bool {
 	if runtime.GOOS != "windows" && os.Getuid() == 0 {
-		return false
-	} else {
 		return true
+	} else {
+		return false
 	}
 }
 
@@ -41,29 +42,38 @@ func GetSurviving_IPs(ips []net.IP) ([]net.IP, error) {
 
 	if CheckRoot() {
 		// 消费者
-		for i := 0; i < vars.ThreadNum; i++ {
-			go RunIcmp(chanPing, wg)
-		}
-
-		// 生产者
-		for _, ip := range ips {
-			wg.Add(1)
-			chanPing <- ip
+		if conn, ok := ListenIcmp(); ok == true {
+			for i := 0; i < vars.ThreadNum; i++ {
+				go RunIcmp2(chanPing, wg, conn)
+			}
+		} else {
+			for i := 0; i < vars.ThreadNum; i++ {
+				go RunIcmp(chanPing, wg)
+			}
 		}
 	} else {
-		// 消费者
-		for i := 0; i < vars.ThreadNum; i++ {
-			go RunPing(chanPing, wg)
+		// windows下也要尝试自定义icmp包
+		if _, ok := ListenIcmpW(); ok == true {
+			for i := 0; i < vars.ThreadNum; i++ {
+				go RunIcmp(chanPing, wg)
+			}
+		} else {
+			// 消费者
+			for i := 0; i < vars.ThreadNum; i++ {
+				go RunPing(chanPing, wg)
+			}
 		}
-
-		// 生产者
-		for _, ip := range ips {
-			wg.Add(1)
-			chanPing <- ip
-		}
+	}
+	// 生产者
+	for _, ip := range ips {
+		wg.Add(1)
+		chanPing <- ip
 	}
 
 	wg.Wait()
+	fmt.Println("[*] 延迟结束监听.....")
+	time.Sleep(time.Second * 5)
+	vars.TaskDone = true
 	close(chanPing)
 	res = PrintPing()
 	return res, nil

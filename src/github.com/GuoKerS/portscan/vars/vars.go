@@ -7,7 +7,8 @@ var (
 	Port = "22"
 	//Mode string
 	Timeout   = 2
-	ThreadNum = 100
+	ThreadNum = 200
+	TaskDone  = false
 
 	// 第一种存活map
 	//Scan_Task = map[string]map[string]int{
