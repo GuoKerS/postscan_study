@@ -48,7 +48,7 @@ func GenICMP() ICMP {
 		Type:           8,
 		Code:           0,
 		CheckSum:       0,
-		Identifier:     1001, // 开发时使用的，用来临时当作特征标记
+		Identifier:     1207, // 开发时使用的，用来临时当作特征标记
 		SequenceNumber: 0,
 	}
 
@@ -71,7 +71,7 @@ func ListenIcmp() (*icmp.PacketConn, bool) {
 				_, ip, _ := conn.ReadFrom(msg)
 				if ip != nil {
 					icmp_t := PareseIcmp(msg)
-					if icmp_t.Identifier == 1001 {
+					if icmp_t.Identifier == 1207 {
 						fmt.Printf("[*] %s is online.\n", ip.String())
 						vars.IsPingsOK.Store(ip.String(), nil)
 					}
