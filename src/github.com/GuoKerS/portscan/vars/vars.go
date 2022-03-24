@@ -7,7 +7,7 @@ var (
 	Port = "22"
 	//Mode string
 	Timeout   = 2
-	ThreadNum = 200
+	ThreadNum = 800 // 过大可能会影响端口扫描准确里，后续考虑将存活探测和端口扫描的最大线程分开
 	TaskDone  = false
 
 	// 第一种存活map
