@@ -91,6 +91,22 @@ func ListenIcmpW() (*icmp.PacketConn, bool) {
 		fmt.Println(err)
 		return nil, false
 	} else {
+		go func() {
+			for {
+				msg := make([]byte, 100)
+				_, ip, _ := conn.ReadFrom(msg)
+				if ip != nil {
+					icmp_t := PareseIcmp(msg)
+					if icmp_t.Identifier == 1001 {
+						fmt.Printf("[*] %s is online.\n", ip.String())
+						vars.IsPingsOK.Store(ip.String(), nil)
+					}
+				}
+				if vars.TaskDone {
+					break
+				}
+			}
+		}()
 		return conn, true
 	}
 }

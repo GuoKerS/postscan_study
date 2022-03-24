@@ -53,9 +53,12 @@ func GetSurviving_IPs(ips []net.IP) ([]net.IP, error) {
 		}
 	} else {
 		// windows下也要尝试自定义icmp包
-		if _, ok := ListenIcmpW(); ok == true {
+		if conn, ok := ListenIcmp(); ok == true {
+			fmt.Println("DEBUG  windows尝试监听icmp扫描")
 			for i := 0; i < vars.ThreadNum; i++ {
-				go RunIcmp(chanPing, wg)
+				// 尝试监听模式扫描
+				go RunIcmp2(chanPing, wg, conn)
+				//go RunIcmp(chanPing, wg)
 			}
 		} else {
 			// 消费者
@@ -71,7 +74,7 @@ func GetSurviving_IPs(ips []net.IP) ([]net.IP, error) {
 	}
 
 	wg.Wait()
-	fmt.Println("[*] 延迟结束监听.....")
+	//fmt.Println("[*] 延迟结束监听.....")
 	time.Sleep(time.Second * 5)
 	vars.TaskDone = true
 	close(chanPing)
