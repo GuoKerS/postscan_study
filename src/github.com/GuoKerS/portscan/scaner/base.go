@@ -4,6 +4,8 @@ import (
 	"fmt"
 	"github.com/GuoKerS/portscan/vars"
 	"github.com/malfunkt/iprange"
+	"github.com/projectdiscovery/ipranger"
+	"github.com/projectdiscovery/mapcidr"
 	"net"
 	"os"
 	"runtime"
@@ -31,6 +33,50 @@ func GetIps(ips string) ([]net.IP, error) {
 	}
 	rang := ipList.Expand()
 	return rang, nil
+}
+
+//
+//	GetIps2
+//	@Description:  测试用，后续应该直接反馈chan
+//	@param ips string
+//	@return []net.IPNet
+//	@return error
+//
+func GetIps2(ips string) ([]net.IP, error) {
+	var (
+		allCidrs  []*net.IPNet
+		pCidr     *net.IPNet
+		ranger    *ipranger.IPRanger
+		err       error
+		resultRip []net.IP
+	)
+	outputchan := make(chan string)
+
+	if _, pCidr, err = net.ParseCIDR(ips); err != nil {
+		return nil, err
+	}
+	ranger, _ = ipranger.New()
+	_ = ranger.AddIPNet(pCidr)
+	allCidrs = append(allCidrs, pCidr)
+
+	cCidrsIPV4, _ := mapcidr.CoalesceCIDRs(allCidrs)
+
+	go func() {
+		for ip := range outputchan {
+			var tCidr *net.IPNet
+			if _, tCidr, err = net.ParseCIDR(ip + "/32"); err != nil {
+				continue
+			}
+			resultRip = append(resultRip, tCidr.IP)
+		}
+	}()
+
+	for ip := range mapcidr.ShuffleCidrsWithSeed(cCidrsIPV4, time.Now().Unix()) { //2.
+		outputchan <- ip.IP
+	}
+
+	return resultRip, nil
+
 }
 
 func GetSurviving_IPs(ips []net.IP) ([]net.IP, error) {

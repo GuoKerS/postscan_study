@@ -28,7 +28,8 @@ func Scan(ctx *cli.Context) error {
 		//fmt.Println(vars.ThreadNum)
 	}
 
-	ips, err := scaner.GetIps(vars.Host)
+	//ips, err := scaner.GetIps(vars.Host)
+	ips, err := scaner.GetIps2(vars.Host)
 	// todo 根据ip列表先做一遍存活判断
 	ipsSurvival, _ := scaner.GetSurviving_IPs(ips)
 
