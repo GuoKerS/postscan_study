@@ -20,6 +20,9 @@ var (
 	// 第二种 简单存活map （并发安全map）
 	IsPingsOK *sync.Map
 	Result    *sync.Map
+
+	Seed  int64
+	Index int64
 )
 
 func init() {

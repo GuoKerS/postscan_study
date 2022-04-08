@@ -185,6 +185,7 @@ func RunIcmp(chanPing chan net.IP, wg *sync.WaitGroup) {
 
 func RunIcmp2(chanPing chan net.IP, wg *sync.WaitGroup, conn *icmp.PacketConn) {
 	for ip := range chanPing {
+		//fmt.Printf("[DEBUG] RunIcmp2 %s\n", ip.String())
 		var buffer bytes.Buffer
 		binary.Write(&buffer, binary.BigEndian, GenICMP())
 

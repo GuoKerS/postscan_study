@@ -3,6 +3,7 @@ package main
 import (
 	"fmt"
 	"github.com/GuoKerS/portscan/cmd"
+	"github.com/GuoKerS/portscan/util"
 	"github.com/urfave/cli"
 	"os"
 )
@@ -19,6 +20,9 @@ func main() {
 	//调试用
 	test := os.Args
 	//test = append(test, "scan")
+
+	// 捕获ctrl c
+	go util.MonitorCtrlC()
 
 	err := app.Run(test)
 

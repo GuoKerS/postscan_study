@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"github.com/GuoKerS/portscan/vars"
 	"github.com/malfunkt/iprange"
-	"github.com/projectdiscovery/ipranger"
+	"github.com/projectdiscovery/blackrock"
 	"github.com/projectdiscovery/mapcidr"
 	"net"
 	"os"
@@ -42,41 +42,116 @@ func GetIps(ips string) ([]net.IP, error) {
 //	@return []net.IPNet
 //	@return error
 //
-func GetIps2(ips string) ([]net.IP, error) {
+func GetIps2(ips string) (chan net.IP, error) {
 	var (
-		allCidrs  []*net.IPNet
-		pCidr     *net.IPNet
-		ranger    *ipranger.IPRanger
-		err       error
-		resultRip []net.IP
+		allCidrs []*net.IPNet
+		pCidr    *net.IPNet
+		//targets	[]net.IP
+		err        error
+		i          int64
+		targetChan chan net.IP
 	)
-	outputchan := make(chan string)
 
-	if _, pCidr, err = net.ParseCIDR(ips); err != nil {
-		return nil, err
-	}
-	ranger, _ = ipranger.New()
-	_ = ranger.AddIPNet(pCidr)
-	allCidrs = append(allCidrs, pCidr)
+	targetChan = make(chan net.IP, vars.ThreadNum)
 
-	cCidrsIPV4, _ := mapcidr.CoalesceCIDRs(allCidrs)
+	go func() (chan net.IP, error) {
+		defer close(targetChan)
+		if _, pCidr, err = net.ParseCIDR(ips); err != nil {
+			return nil, err
+		}
+		allCidrs = append(allCidrs, pCidr)
+		cidrs, _ := mapcidr.CoalesceCIDRs(allCidrs)
+		ipsCount := mapcidr.TotalIPSInCidrs(cidrs)
 
-	go func() {
-		for ip := range outputchan {
-			var tCidr *net.IPNet
-			if _, tCidr, err = net.ParseCIDR(ip + "/32"); err != nil {
+		Range := ipsCount
+		Seed := time.Now().UnixNano()
+		if vars.Seed == 0 {
+			vars.Seed = Seed
+		}
+		br := blackrock.New(int64(Range), vars.Seed)
+		if vars.Index > 0 {
+			i = vars.Index
+		}
+		for index := i; index < int64(Range); index++ {
+			ipIndex := br.Shuffle(index)
+			ip := mapcidr.PickIP(cidrs, ipIndex)
+			if ip == "" {
 				continue
 			}
-			resultRip = append(resultRip, tCidr.IP)
+			//targets = append(targets, net.ParseIP(ip))
+			vars.Index = index
+			//fmt.Printf("[DEBUG] %s\n", net.ParseIP(ip).String())
+			targetChan <- net.ParseIP(ip)
 		}
+
+		return targetChan, nil
 	}()
+	return targetChan, nil
 
-	for ip := range mapcidr.ShuffleCidrsWithSeed(cCidrsIPV4, time.Now().Unix()) { //2.
-		outputchan <- ip.IP
+}
+
+func GetSurviving_IPs2(ips chan net.IP) ([]net.IP, error) {
+	var res []net.IP
+	wg := &sync.WaitGroup{}
+
+	chanPing := make(chan net.IP, vars.ThreadNum)
+	fmt.Printf("[-] 开始IP存活探测\n")
+
+	if CheckRoot() {
+		// 消费者
+		if conn, ok := ListenIcmp(); ok == true {
+			for i := 0; i < vars.ThreadNum; i++ {
+				go RunIcmp2(chanPing, wg, conn)
+			}
+		} else {
+			for i := 0; i < vars.ThreadNum; i++ {
+				go RunIcmp(chanPing, wg)
+			}
+		}
+	} else {
+		// windows下也要尝试自定义icmp包
+		if conn, ok := ListenIcmp(); ok == true {
+			fmt.Println("DEBUG  windows尝试监听icmp扫描")
+			for i := 0; i < vars.ThreadNum; i++ {
+				// 尝试监听模式扫描
+				go RunIcmp2(chanPing, wg, conn)
+				//go RunIcmp(chanPing, wg)
+			}
+		} else {
+			// 消费者
+			for i := 0; i < vars.ThreadNum; i++ {
+				go RunPing(chanPing, wg)
+			}
+		}
 	}
+	// 生产者
+	for ip := range ips {
+		//fmt.Printf("[DEBUG] select -> %s\n", ip.String())
+		wg.Add(1)
+		chanPing <- ip
+	}
+	//select {
+	//case ip := <- ips:
+	//	fmt.Printf("[DEBUG] select -> %s\n", ip.String())
+	//	wg.Add(1)
+	//	chanPing <- ip
+	//}
 
-	return resultRip, nil
+	wg.Wait()
+	//fmt.Println("[*] 延迟结束监听.....")
 
+	//fmt.Println("[DEBUG] 延迟print测试")
+	for i := 1; i < 6; i++ { // 延迟时间
+		fmt.Printf("\r[*] 延迟结束监听.....%ds", 5-i)
+		time.Sleep(time.Second)
+	}
+	fmt.Printf("\n")
+
+	//time.Sleep(time.Second * 5)
+	vars.TaskDone = true
+	close(chanPing)
+	res = PrintPing()
+	return res, nil
 }
 
 func GetSurviving_IPs(ips []net.IP) ([]net.IP, error) {
@@ -121,6 +196,7 @@ func GetSurviving_IPs(ips []net.IP) ([]net.IP, error) {
 
 	wg.Wait()
 	//fmt.Println("[*] 延迟结束监听.....")
+
 	time.Sleep(time.Second * 5)
 	vars.TaskDone = true
 	close(chanPing)
