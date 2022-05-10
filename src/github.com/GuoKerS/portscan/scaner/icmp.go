@@ -20,6 +20,8 @@ type ICMP struct {
 	//Data           uint32 // 数据段，可以为任意数据
 }
 
+var icmpFlag = uint16(1207)
+
 // GenICMP https://blog.csdn.net/kclax/article/details/93209762    无状态扫描技术
 //func MyCheckSum(data bytes.Buffer) uint16 {
 //	/*
@@ -48,7 +50,7 @@ func GenICMP() ICMP {
 		Type:           8,
 		Code:           0,
 		CheckSum:       0,
-		Identifier:     1207, // 开发时使用的，用来临时当作特征标记
+		Identifier:     icmpFlag, // 开发时使用的，用来临时当作特征标记
 		SequenceNumber: 0,
 	}
 
@@ -70,8 +72,8 @@ func ListenIcmp() (*icmp.PacketConn, bool) {
 				msg := make([]byte, 100)
 				_, ip, _ := conn.ReadFrom(msg)
 				if ip != nil {
-					icmp_t := PareseIcmp(msg)
-					if icmp_t.Identifier == 1207 {
+					icmp_t := ParseIcmp(msg)
+					if icmp_t.Identifier == icmpFlag {
 						fmt.Printf("[*] %s is online.\n", ip.String())
 						vars.IsPingsOK.Store(ip.String(), nil)
 					}
@@ -96,8 +98,8 @@ func ListenIcmpW() (*icmp.PacketConn, bool) {
 				msg := make([]byte, 100)
 				_, ip, _ := conn.ReadFrom(msg)
 				if ip != nil {
-					icmp_t := PareseIcmp(msg)
-					if icmp_t.Identifier == 1001 {
+					icmp_t := ParseIcmp(msg)
+					if icmp_t.Identifier == icmpFlag {
 						fmt.Printf("[*] %s is online.\n", ip.String())
 						vars.IsPingsOK.Store(ip.String(), nil)
 					}
@@ -126,14 +128,13 @@ func sendICMPRequest(icmp ICMP, destAddr *net.IPAddr) bool {
 	}
 	buffer.Reset()
 
-	conn.SetReadDeadline((time.Now().Add(time.Second * time.Duration(vars.Timeout)))) // 因为超时时间太短？
+	conn.SetReadDeadline(time.Now().Add(time.Second * time.Duration(vars.Timeout))) // 因为超时时间太短？
 
-	recv := make([]byte, 100) // 还是因为过长？
+	recv := make([]byte, 20) // 还是因为过长？
 	_, err = conn.Read(recv)
 	if err != nil {
 		return false
 	} else {
-		//fmt.Println(recv)
 		fmt.Printf("[*] %s is online.\n", destAddr.String())
 		return true
 	}
@@ -153,12 +154,12 @@ func CheckSum(data []byte) uint16 {
 	if length > 0 {
 		sum += uint32(data[index])
 	}
-	sum += (sum >> 16)
+	sum += sum >> 16
 
 	return uint16(^sum)
 }
 
-func PareseIcmp(icmp_t []byte) ICMP {
+func ParseIcmp(icmp_t []byte) ICMP {
 	icmp_p := ICMP{
 		Type:           icmp_t[0],
 		Code:           icmp_t[1],
@@ -185,7 +186,6 @@ func RunIcmp(chanPing chan net.IP, wg *sync.WaitGroup) {
 
 func RunIcmp2(chanPing chan net.IP, wg *sync.WaitGroup, conn *icmp.PacketConn) {
 	for ip := range chanPing {
-		//fmt.Printf("[DEBUG] RunIcmp2 %s\n", ip.String())
 		var buffer bytes.Buffer
 		binary.Write(&buffer, binary.BigEndian, GenICMP())
 
@@ -193,6 +193,7 @@ func RunIcmp2(chanPing chan net.IP, wg *sync.WaitGroup, conn *icmp.PacketConn) {
 		if err != nil {
 			continue
 		}
+
 		conn.WriteTo(buffer.Bytes(), dst)
 		buffer.Reset()
 		wg.Done()
