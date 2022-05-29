@@ -29,6 +29,15 @@ func Scan(taskChan chan map[string]int, wg *sync.WaitGroup) {
 	}
 }
 
+func SynScan(taskChan chan map[string]int, wg *sync.WaitGroup) {
+	for task := range taskChan {
+		for ip, port := range task {
+			SynSend(ip, port)
+			wg.Done()
+		}
+	}
+}
+
 func RunPing(chanPing chan net.IP, wg *sync.WaitGroup) {
 	for ip := range chanPing {
 		r := CmdPing(ip)
@@ -40,6 +49,26 @@ func RunPing(chanPing chan net.IP, wg *sync.WaitGroup) {
 }
 
 func RunTask(tasks []map[string]int) {
+	fmt.Println("[-] 开始进行端口扫描")
+	wg := &sync.WaitGroup{}
+
+	taskChan := make(chan map[string]int, vars.ThreadNum)
+
+	for i := 0; i < vars.ThreadNum; i++ {
+		go Scan(taskChan, wg)
+	}
+
+	// 生产者，不断地往taskChan 中发送数据
+	for _, task := range tasks {
+		wg.Add(1)
+		taskChan <- task
+	}
+
+	close(taskChan)
+	wg.Wait()
+}
+
+func RunTaskSyn(tasks []map[string]int) {
 	fmt.Println("[-] 开始进行端口扫描")
 	wg := &sync.WaitGroup{}
 
